@@ -1,8 +1,8 @@
 import numpy as np
 from scipy.spatial import cKDTree
-import matplotlib.pyplot as plt
 import os.path
 import sklearn.preprocessing
+import sys
 
 import utils
 import preprocess
@@ -13,25 +13,32 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
 from keras.utils import np_utils
 from keras.models import model_from_json
-from keras.layers.convolutional import Convolution2D, MaxPooling2D, ZeroPadding2D
+from keras.layers.convolutional import Convolution2D, MaxPooling2D
+from keras.layers.convolutional import Convolution3D, MaxPooling3D
 
-def make_model_2(img_channels, img_rows, img_cols):
+def make_model_2(img_channels, img_rows, img_cols,d3, neurons_full_layer):
     model = Sequential()
 
-    model.add(Convolution2D(16, 4, 4, border_mode='same',
-                        input_shape=(img_channels, img_rows, img_cols)))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    print img_channels, img_rows, img_cols,d3
+
+    model.add(Convolution3D(32, 4, 4,4, border_mode='same', input_shape=(img_channels, img_rows, img_cols,d3)))
+    model.add(MaxPooling3D(pool_size=(2, 2,2)))
     model.add(Activation('relu'))
     
     #model.add(Convolution2D(64, 3, 3, border_mode='same'))
     #model.add(Activation('relu'))
-    model.add(Convolution2D(32, 3, 3))
+    model.add(Convolution3D(64, 4, 4,4))
     model.add(Activation('relu'))
-    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(MaxPooling3D(pool_size=(2, 2,2)))
+
+    #model.add(Convolution3D(32, 4, 4,4))
+    #model.add(Activation('relu'))
+    #model.add(MaxPooling3D(pool_size=(2, 2,2)))
+
     model.add(Dropout(0.25))
 
     model.add(Flatten())
-    model.add(Dense(100,init='lecun_uniform'))
+    model.add(Dense(neurons_full_layer,init='lecun_uniform'))
     model.add(Activation('relu'))
     model.add(Dropout(0.25))
 
@@ -40,17 +47,35 @@ def make_model_2(img_channels, img_rows, img_cols):
 
     model.summary()    
     # let's train the model using SGD + momentum (how original).
-    sgd = SGD(lr=0.001) #, decay=1e-6, momentum=0.9, nesterov=True)
-    model.compile(loss='mse',optimizer=sgd) #,              metrics=['accuracy'])
+    opt = Adam()
+    model.compile(loss='mse',optimizer=opt) #,              metrics=['accuracy'])
               
     return model
     
 
 
 if __name__ == "__main__":
+    print sys.argv
+    n_args = len(sys.argv)
+    
+    nb_epoch = 50
+    batch_size = 50
+    neurons_full_layer = 100
+    
+    if n_args > 1:
+        nb_epoch = int(sys.argv[1])
+        
+    if n_args > 2:
+        batch_size = int(sys.argv[2])
+        
+    if n_args > 3:
+        neurons_full_layer = int(sys.argv[3])
+    
+    
+    
     alldata  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
     
-    locations = alldata[:,0:2]
+    locations = alldata[:,0:3]
     data_original = alldata[:,3:4]
     
     #scaler = sklearn.preprocessing.MinMaxScaler()
@@ -75,7 +100,13 @@ if __name__ == "__main__":
     n_training = len(train_index)
     n_testing = len(test_index)
 
-    model = make_model_2(m, 101, 101)
+    wsize = np.array((20,20,20),dtype=np.int32)
+    nwsize = wsize*2+1
+
+    print wsize
+    print nwsize
+
+    model = make_model_2(m, nwsize[0], nwsize[1],nwsize[2],neurons_full_layer)
 
     X_training = None
     y_training = None
@@ -93,9 +124,9 @@ if __name__ == "__main__":
         y_testing = np.load("y_testing.npy")
 
     if X_training is None:
-        X_training = np.empty((n_training,m,101,101))
+        X_training = np.empty((n_training,m,nwsize[0],nwsize[1],nwsize[2]))
         y_training = np.empty((n_training,m))
-        X_testing = np.empty((n_testing,m,101,101))
+        X_testing = np.empty((n_testing,m,nwsize[0],nwsize[1],nwsize[2]))
         y_testing = np.empty((n_testing,m))
         
         kdtree = cKDTree(locations)
@@ -104,15 +135,15 @@ if __name__ == "__main__":
         print "processing training data"
         for i,index in enumerate(train_index):
             location = locations[index]
-            image = preprocess.create_image_from_neighbours(location,locations,data,k,kdtree,(50,50),(5,5),distance=np.inf)
-            X_training[i,:,:,:] = image
+            image = preprocess.create_image_from_neighbours_3d(location,locations,data,k,kdtree,(wsize[0],wsize[1],wsize[2]),(10.0,10.0,10.0),distance=np.inf)
+            X_training[i,:,:,:,:] = image
             y_training[i,:] = data[index,:]
         
         print "processing testing data"
         for i,index in enumerate(test_index):
             location = locations[index]
-            image = preprocess.create_image_from_neighbours(location,locations,data,k,kdtree,(50,50),(5,5),distance=np.inf)
-            X_testing[i,:,:,:] = image
+            image = preprocess.create_image_from_neighbours_3d(location,locations,data,k,kdtree,(wsize[0],wsize[1],wsize[2]),(10.0,10.0,10.0),distance=np.inf)
+            X_testing[i,:,:,:,:] = image
             y_testing[i,:] = data[index,:]
             
         np.save("X_training",X_training)
@@ -120,8 +151,8 @@ if __name__ == "__main__":
         np.save("X_testing",X_testing)
         np.save("y_testing",y_testing)
     else:
+        pass
         
-    batch_size,nb_epoch = 100,50
 
     history = model.fit(X_training, y_training,
         batch_size=batch_size, nb_epoch=nb_epoch,
@@ -133,3 +164,13 @@ if __name__ == "__main__":
     print np.mean(score[:,0])
     print np.std(y_testing[:,0])
     print np.std(score[:,0])
+
+    print "Testing values"
+    for true_value, prediction in zip(y_testing[:,0],score[:,0]):
+        print true_value,',', prediction
+
+    print "Training values"
+    score = model.predict(X_training)
+    for true_value, prediction in zip(y_training[:,0],score[:,0]):
+        print true_value,',', prediction
+
