@@ -31,9 +31,9 @@ def make_model_2(img_channels, img_rows, img_cols,d3, neurons_full_layer):
     model.add(Activation('relu'))
     model.add(MaxPooling3D(pool_size=(2, 2,2)))
 
-    #model.add(Convolution3D(32, 4, 4,4))
-    #model.add(Activation('relu'))
-    #model.add(MaxPooling3D(pool_size=(2, 2,2)))
+    model.add(Convolution3D(32, 4, 4,4))
+    model.add(Activation('relu'))
+    model.add(MaxPooling3D(pool_size=(2, 2,2)))
 
     model.add(Dropout(0.25))
 
