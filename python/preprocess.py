@@ -1,6 +1,5 @@
 import numpy as np
 from scipy.spatial import cKDTree
-import matplotlib.pyplot as plt
 
 def create_image_from_neighbours(location,locations,data,k,kdtree,nodes,sizes,distance=np.inf):
     #few validations
@@ -45,7 +44,7 @@ def create_image_from_neighbours(location,locations,data,k,kdtree,nodes,sizes,di
 
     return image
 
-def create_image_from_neighbours_ts(location,locations,data,k,kdtree,nodes,sizes,distance=np.inf):
+def create_image_from_neighbours_3d(location,locations,data,k,kdtree,nodes,sizes,distance=np.inf):
     #few validations
     assert len(nodes) == len(sizes)
     
@@ -57,7 +56,7 @@ def create_image_from_neighbours_ts(location,locations,data,k,kdtree,nodes,sizes
 
     n,m = data.shape
 
-    image_shape = list(image_shape) + [m]
+    image_shape = [m] + list(image_shape)
 
     values_image = np.zeros(image_shape)
     n_image = np.zeros(image_shape,dtype=np.int32)
@@ -76,11 +75,11 @@ def create_image_from_neighbours_ts(location,locations,data,k,kdtree,nodes,sizes
                 diff = (coord - location)
                 #indices of diff
                 grid_indices = np.int32(np.floor(diff/sizes))
-                if grid_indices[0] > -nodes[0] and grid_indices[0] < nodes[0] and grid_indices[1] > -nodes[1] and grid_indices[1] < nodes[1]:
+                if grid_indices[0] > -nodes[0] and grid_indices[0] < nodes[0] and grid_indices[1] > -nodes[1] and grid_indices[1] < nodes[1] and grid_indices[2] > -nodes[2] and grid_indices[2] < nodes[2]:
                     #print index,grid_indices,data[index,:]
                     #image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1]] = data[index,:]
-                    values_image[grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],:] += data[index,:]
-                    n_image[grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],:] += 1
+                    values_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += data[index,:]
+                    n_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
                     
     #find n_images > 0
     indices = np.where(n_image>0)

@@ -7,7 +7,7 @@ import sys
 import utils
 import preprocess
 
-from keras.optimizers import SGD, Adam, RMSprop
+from keras.optimizers import SGD, Adam, RMSprop, Adagrad
 from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
@@ -15,39 +15,45 @@ from keras.utils import np_utils
 from keras.models import model_from_json
 from keras.layers.convolutional import Convolution2D, MaxPooling2D
 from keras.layers.convolutional import Convolution3D, MaxPooling3D
+from keras.layers.normalization import BatchNormalization
 
-def make_model_2(img_channels, img_rows, img_cols,d3, neurons_full_layer):
+def save_model(model,model_filename):
+    print("saving model",model_filename)
+    json_string = model.to_json()
+    open(model_filename + ".json", 'w').write(json_string)
+    model.save_weights(model_filename + ".h5",overwrite=True)
+
+
+def make_model_2(img_channels, img_rows, img_cols,d3):
     model = Sequential()
 
-    print img_channels, img_rows, img_cols,d3
-
-    model.add(Convolution3D(32, 4, 4,4, border_mode='same', input_shape=(img_channels, img_rows, img_cols,d3)))
-    model.add(MaxPooling3D(pool_size=(2, 2,2)))
+    model.add(Convolution3D(16, 4, 4, 4, border_mode='same', input_shape=(img_channels, img_rows, img_cols,d3)))
+    model.add(MaxPooling3D(pool_size=(2, 2, 2)))
     model.add(Activation('relu'))
+
+    model.add(BatchNormalization())
     
-    #model.add(Convolution2D(64, 3, 3, border_mode='same'))
-    #model.add(Activation('relu'))
-    model.add(Convolution3D(64, 4, 4,4))
+    model.add(Convolution3D(64, 4, 4, 4))
     model.add(Activation('relu'))
     model.add(MaxPooling3D(pool_size=(2, 2,2)))
 
-    #model.add(Convolution3D(32, 4, 4,4))
-    #model.add(Activation('relu'))
-    #model.add(MaxPooling3D(pool_size=(2, 2,2)))
+    model.add(BatchNormalization())
 
-    model.add(Dropout(0.25))
+    model.add(Convolution3D(32, 4, 4, 4))
+    model.add(Activation('relu'))
+    model.add(MaxPooling3D(pool_size=(2,2,2)))
+
+
+    model.add(BatchNormalization())
 
     model.add(Flatten())
-    model.add(Dense(neurons_full_layer,init='lecun_uniform'))
-    model.add(Activation('relu'))
-    model.add(Dropout(0.25))
 
     model.add(Dense(img_channels,init='lecun_uniform'))
     model.add(Activation('linear'))
 
     model.summary()    
     # let's train the model using SGD + momentum (how original).
-    opt = Adam()
+    opt = Adagrad()
     model.compile(loss='mse',optimizer=opt) #,              metrics=['accuracy'])
               
     return model
@@ -60,7 +66,6 @@ if __name__ == "__main__":
     
     nb_epoch = 50
     batch_size = 50
-    neurons_full_layer = 100
     
     if n_args > 1:
         nb_epoch = int(sys.argv[1])
@@ -68,9 +73,6 @@ if __name__ == "__main__":
     if n_args > 2:
         batch_size = int(sys.argv[2])
         
-    if n_args > 3:
-        neurons_full_layer = int(sys.argv[3])
-    
     
     
     alldata  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
@@ -106,7 +108,10 @@ if __name__ == "__main__":
     print wsize
     print nwsize
 
-    model = make_model_2(m, nwsize[0], nwsize[1],nwsize[2],neurons_full_layer)
+    model = make_model_2(m, nwsize[0], nwsize[1],nwsize[2])
+
+    save_model(model,"muestras-model")
+
 
     X_training = None
     y_training = None
@@ -156,7 +161,9 @@ if __name__ == "__main__":
 
     history = model.fit(X_training, y_training,
         batch_size=batch_size, nb_epoch=nb_epoch,
-        verbose=1, validation_data=(X_testing, y_testing))
+        verbose=1, validation_data=(X_testing, y_testing),shuffle=True)
+
+    save_model(model,"muestras-model")
                         
     score = model.predict(X_testing)
     
@@ -174,3 +181,5 @@ if __name__ == "__main__":
     for true_value, prediction in zip(y_training[:,0],score[:,0]):
         print true_value,',', prediction
 
+
+    
