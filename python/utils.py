@@ -1,4 +1,5 @@
 from sklearn.cross_validation import KFold
+from keras.models import model_from_json
 
 def generate_kfold(rows,n_folds=5,shuffle=True,random_state=None):
     #rows = [row for row in csv_reader]
@@ -11,6 +12,17 @@ def generate_kfold(rows,n_folds=5,shuffle=True,random_state=None):
         folds += [([rows[i] for i in train_index],[rows[i] for i in test_index])]
 
     return folds
+
+def save_model(model,model_filename):
+    json_string = model.to_json()
+    open(model_filename + ".json", 'w').write(json_string)
+    model.save_weights(model_filename + ".h5",overwrite=True)
+
+def load_model(model_filename):
+    model = model_from_json(open(model_filename + ".json").read())    
+    model.load_weights(model_filename + ".h5")
+
+    return model
 
 if __name__ == "__main__":
     ret = generate_kfold(range(100),n_folds=5,shuffle=True,random_state=1634120)
