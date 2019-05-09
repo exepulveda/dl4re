@@ -5,22 +5,23 @@ import sklearn.preprocessing
 import sklearn.metrics
 import sys
 
-sys.path += ["/home/esepulveda/projects/geostatpy"]
+sys.path += ["../../geostatpy"]
 import geometry
 
 
 import utils
 import preprocess
 
-from keras.optimizers import SGD, Adam, RMSprop, Adagrad
-from keras.datasets import mnist
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout, Activation, Flatten
-from keras.utils import np_utils
-from keras.models import model_from_json
-from keras.layers.convolutional import Convolution2D, MaxPooling2D
-from keras.layers.convolutional import Convolution3D, MaxPooling3D
-from keras.layers.normalization import BatchNormalization
+from keras.layers import Dense,Dropout,Activation
+
+from keras.optimizers import SGD, Adam, RMSprop, Adagrad
+from keras.callbacks import EarlyStopping
+#from keras.utils import np_utils
+#from keras.models import model_from_json
+#from keras.layers.convolutional import Convolution2D, MaxPooling2D
+#from keras.layers.convolutional import Convolution3D, MaxPooling3D
+#from keras.layers.normalization import BatchNormalization
 
 def save_model(model,model_filename):
     print("saving model",model_filename)
@@ -34,117 +35,82 @@ def load_model(model_filename):
 
     return model
 
-def make_model_locations(nh=100):
+def make_model_locations(nh,dropout_rate=0.5,activation='relu',lr=0.0001):
     model = Sequential()
+    
+    model.add(Dense(nh[0],kernel_initializer='glorot_normal',input_dim=4))
+    model.add(Activation(activation))
+    model.add(Dropout(dropout_rate))
 
-    model.add(Dense(nh,init='lecun_uniform',input_shape=(3,)))
-    model.add(Activation('sigmoid'))
+    if len(nh)>1:
+        for n in nh[1:]:
+            model.add(Dense(units=n,kernel_initializer='glorot_normal'))
+            model.add(Activation(activation))
+            model.add(Dropout(dropout_rate))
 
-    model.add(Dense(1,init='lecun_uniform'))
-    model.add(Activation('linear'))
+    model.add(Dense(units=1,kernel_initializer='glorot_normal',activation='linear'))
 
     model.summary()    
     # let's train the model using SGD + momentum (how original).
-    opt = Adagrad()
+    opt = Adam(lr)
     model.compile(loss='mse',optimizer=opt) #,              metrics=['accuracy'])
               
     return model
     
 
-def train():
-    print sys.argv
-    n_args = len(sys.argv)
-    
-    nb_epoch = 300
-    batch_size = 100
-    
-    if n_args > 1:
-        nb_epoch = int(sys.argv[1])
-        
-    if n_args > 2:
-        batch_size = int(sys.argv[2])
-        
-    
-    
-    alldata_original  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
-    scaler_data = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 0.9))
-    alldata = scaler_data.fit_transform(alldata_original)    
-    
-    locations = alldata[:,0:3]
-    data_original = alldata[:,3:4]
-    
-    #scaler = sklearn.preprocessing.MinMaxScaler()
-    
-    data = data_original #scaler.fit_transform(data_original)
-    
-    if len(data.shape) < 2:
-        data = np.expand_dims(data, axis=1)
-    
-    
-    print locations.shape
-    print data.shape
-    
+def train(train_index,test_index,locations,data,epoch = 300,batch_size = 100,nh=[1000],dropout_rate=0.5):
     n,m = data.shape
-    
-    ret = utils.generate_kfold(range(n),n_folds=5,shuffle=True,random_state=1634120)    
-    
-    train_index, test_index = ret[0]
-    
-    print len(train_index),len(test_index)
+    print(n,m)
     
     n_training = len(train_index)
     n_testing = len(test_index)
 
-    model = make_model_locations(nh=1000)
+    model = make_model_locations(nh=nh,dropout_rate=dropout_rate)
 
-    X_training = np.empty((n_training,3))
-    y_training = np.empty((n_training,m))
-    X_testing = np.empty((n_testing,3))
-    y_testing = np.empty((n_testing,m))
+    X_training = np.empty((n_training,3+m-1))
+    y_training = np.empty((n_training,1))
+    X_testing = np.empty((n_testing,3+m-1))
+    y_testing = np.empty((n_testing,1))
     
-    X_training[:,:] = locations[train_index,:]
-    y_training[:,:] = data[train_index,:]
+    X_training[:,:3] = locations[train_index,:]
+    X_training[:,3] = data[train_index,1] #au
+    y_training[:,0] = data[train_index,0] #cu
       
-    X_testing[:,:] = locations[test_index,:]
-    y_testing[:,:] = data[test_index,:]
+    X_testing[:,:3] = locations[test_index,:]
+    X_testing[:,3] = data[test_index,1]
+    y_testing[:,0] = data[test_index,0]
             
 
+    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=20, verbose=0, mode='auto', baseline=None, restore_best_weights=False)
+
     history = model.fit(X_training, y_training,
-        batch_size=batch_size, nb_epoch=nb_epoch,
-        verbose=1, validation_data=(X_testing, y_testing),shuffle=True)
+        batch_size=batch_size, epoch=epoch,
+        verbose=1, validation_data=(X_testing, y_testing),shuffle=True,callbacks=[es])
 
-    save_model(model,"muestras-model-locations")
+    utils.save_model(model,"muestras-model-locations")
 
-    score = model.predict(X_testing)
-    
-    print np.mean(y_testing[:,0])
-    print np.mean(score[:,0])
-    print np.std(y_testing[:,0])
-    print np.std(score[:,0])
+    #R2 in training
+    prediction = model.predict(X_training)
+    r2_training = sklearn.metrics.r2_score(y_training,prediction)
 
-    print "r2", sklearn.metrics.r2_score(score, y_testing)
 
-    quit()
-    print "Testing values"
-    for true_value, prediction in zip(y_testing[:,0],score[:,0]):
-        print true_value,',', prediction
+    prediction = model.predict(X_testing)
+    r2_testing = sklearn.metrics.r2_score(y_testing,prediction)
 
-    print "Training values"
-    score = model.predict(X_training)
-    for true_value, prediction in zip(y_training[:,0],score[:,0]):
-        print true_value,',', prediction
-
-def predict():
-    model.predict(X_testing)
+    return r2_training,r2_testing
 
 if __name__ == "__main__":
+    from keras import backend as K
+    K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)))
+    
+    #Using all data and then spliting it
     alldata_original  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
     
-    scaler_locations = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 0.9))
-    scaler_data = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 0.9))
+    scaler_locations = sklearn.preprocessing.MinMaxScaler(feature_range=(0.0, 1.0))
+    scaler_data = sklearn.preprocessing.MinMaxScaler(feature_range=(0.0, 1.0))
     
     locations_original = alldata_original[:,0:3]
-    data_original = alldata_original[:,3:4]
+    data_original = alldata_original[:,3:5]
     
     locations = scaler_locations.fit_transform(locations_original)
     data = scaler_data.fit_transform(data_original)
@@ -152,36 +118,48 @@ if __name__ == "__main__":
     if len(data.shape) < 2:
         data = np.expand_dims(data, axis=1)
     
-    
-    print locations.shape
-    print data.shape
-    
-    nodes = [40,60,1]
-    sizes = [10.0,10.0,10.0]
-    starts = [5.0,5.0,125.0]
-    
-    grid = geometry.Grid3D(nodes,sizes,starts)
-    
-    dgrid = grid.discretize([4,4,1])
-    
-    nbatch = len(dgrid)
+    print(locations.shape)
+    print(data.shape)
 
-    locations_batch = np.empty((nbatch,3))
-    
-    model = load_model("muestras-model-locations")
-    
-    predictions = np.empty(len(grid))
+    n,m = data.shape
 
-    for i,p in enumerate(grid):
-        locations_batch = scaler_locations.transform(dgrid + p)
-        
-        p = model.predict(locations_batch)
-        
-        p = scaler_data.inverse_transform(p)
-        
-        predictions[i] = np.mean(p)
-        
-        print predictions[i]
+    if True:
+        fold = utils.generate_kfold(np.arange(n),n_folds=5,shuffle=True,random_state=1634120)    
+        r2_folds = []
+        for train_index, test_index in fold:
+            r2_training,r2_testing = train(train_index,test_index,locations,data,nh=[100,50],nb_epoch=10000,dropout_rate=0.3)
+            print(r2_training,r2_testing)
+            r2_folds += [r2_testing]
+            
+        print("r2 all folds:",np.mean(r2_folds))
 
-    #print "r2", sklearn.metrics.r2_score(score, y_testing)
+    if not True:
+        nodes = [40,60,1]
+        sizes = [10.0,10.0,10.0]
+        starts = [5.0,5.0,125.0]
+        
+        grid = geometry.Grid3D(nodes,sizes,starts)
+        
+        dgrid = grid.discretize([4,4,1])
+        
+        nbatch = len(dgrid)
+
+        locations_batch = np.empty((nbatch,3))
+        
+        model = load_model("muestras-model-locations")
+        
+        predictions = np.empty(len(grid))
+
+        for i,p in enumerate(grid):
+            locations_batch = scaler_locations.transform(dgrid + p)
+            
+            p = model.predict(locations_batch)
+            
+            p = scaler_data.inverse_transform(p)
+            
+            predictions[i] = np.mean(p)
+            
+            print(predictions[i])
+
+        #print "r2", sklearn.metrics.r2_score(score, y_testing)
 
