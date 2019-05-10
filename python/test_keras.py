@@ -8,7 +8,7 @@ import sys
 import utils
 import preprocess
 
-from keras.optimizers import SGD, Adam, RMSprop
+from keras.optimizers import SGD, Adam, RMSprop, Adadelta
 from keras.datasets import mnist
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation, Flatten
@@ -22,33 +22,33 @@ def make_model_2(img_channels, img_rows, img_cols,d3, neurons_full_layer):
 
     print img_channels, img_rows, img_cols,d3
 
-    model.add(Convolution3D(32, 4, 4,4, border_mode='same', input_shape=(img_channels, img_rows, img_cols,d3)))
+    model.add(Convolution3D(8, 4,4,4, border_mode='same', input_shape=(img_channels, img_rows, img_cols,d3)))
     model.add(MaxPooling3D(pool_size=(2, 2,2)))
-    model.add(Activation('relu'))
+    model.add(Activation('sigmoid'))
     
     #model.add(Convolution2D(64, 3, 3, border_mode='same'))
     #model.add(Activation('relu'))
-    model.add(Convolution3D(64, 4, 4,4))
-    model.add(Activation('relu'))
-    model.add(MaxPooling3D(pool_size=(2, 2,2)))
+    #model.add(Convolution3D(16, 4, 4,4))
+    #model.add(Activation('sigmoid'))
+    #model.add(MaxPooling3D(pool_size=(2, 2,2)))
 
     #model.add(Convolution3D(32, 4, 4,4))
     #model.add(Activation('relu'))
     #model.add(MaxPooling3D(pool_size=(2, 2,2)))
 
-    model.add(Dropout(0.25))
+    #model.add(Dropout(0.25))
 
     model.add(Flatten())
     model.add(Dense(neurons_full_layer,init='lecun_uniform'))
-    model.add(Activation('relu'))
-    model.add(Dropout(0.25))
+    model.add(Activation('sigmoid'))
+    #model.add(Dropout(0.20))
 
     model.add(Dense(img_channels,init='lecun_uniform'))
     model.add(Activation('linear'))
 
     model.summary()    
     # let's train the model using SGD + momentum (how original).
-    opt = Adam()
+    opt = Adadelta()
     model.compile(loss='mse',optimizer=opt) #,              metrics=['accuracy'])
               
     return model
@@ -268,8 +268,13 @@ if __name__ == "__main__":
     
     alldata_original  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
     
+<<<<<<< HEAD
     scaler_locations = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 0.9))
     scaler_data = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 0.9))
+=======
+    scaler_locations = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 1.0))
+    scaler_data = sklearn.preprocessing.MinMaxScaler(feature_range=(0.1, 1.0))
+>>>>>>> 4faa5ec72beeb3b06b839b1fa7cc245f4ea6337a
     
     locations_original = alldata_original[:,0:3]
     data_original = alldata_original[:,3:4]
