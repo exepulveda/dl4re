@@ -1,6 +1,7 @@
 import numpy as np
 from sklearn.model_selection import KFold
 from keras.models import model_from_json
+from keras.utils import to_categorical
 
 def generate_kfold(rows,n_folds=5,shuffle=True,random_state=None):
     #rows = [row for row in csv_reader]
@@ -24,6 +25,24 @@ def load_model(model_filename):
     model.load_weights(model_filename + ".h5")
 
     return model
+    
+ 
+def encode_categories(y):
+    cats = list(set(y))
+
+    #code from 0 to ncats-1
+    ycat = np.empty(len(y),dtype=int)
+    code_dict = {}
+    for i,c in enumerate(cats):
+     code_dict[c] = i
+     
+     idx = np.where(y==c)[0]
+     
+     ycat[idx] = i
+     
+
+    return to_categorical(ycat),cats
+
 
 if __name__ == "__main__":
     ret = generate_kfold(range(100),n_folds=5,shuffle=True,random_state=1634120)

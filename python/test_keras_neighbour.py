@@ -30,7 +30,7 @@ def load_model(model_filename):
 
     return model
 
-def make_model_locations(inputs,nh=[100],dropout_rate=0.3,activation='relu',lr=0.0001):
+def make_model_locations(inputs,nh=[100],dropout_rate=0.5,activation='relu',lr=0.0001):
     model = Sequential()
 
     model.add(Dense(nh[0],kernel_initializer='glorot_normal',input_shape=(inputs,)))
@@ -47,21 +47,21 @@ def make_model_locations(inputs,nh=[100],dropout_rate=0.3,activation='relu',lr=0
 
     model.summary()    
     # let's train the model using SGD + momentum (how original).
-    opt = Adam(lr)
+    opt = Adam(lr) #Adam(lr)
     model.compile(loss='mse',optimizer=opt) #,              metrics=['accuracy'])
               
     return model
     
 
 
-def train(train_index, test_index,data,y_index,k=50,nh=[1000],epoch = 300,batch_size = 100):
+def train(train_index, test_index,data,y_index,k=50,nh=[1000],epoch = 300,batch_size = 32,dropout=0.5,activation='relu'):
     n,m = data.shape
     n_training = len(train_index)
     n_testing = len(test_index)
 
     kdtree = cKDTree(locations)
 
-    model = make_model_locations(k*(3+m),nh=nh)
+    model = make_model_locations(k*(1+m),nh=nh,dropout_rate=dropout,activation=activation)
 
     X_training= preprocess.get_neighbours(locations[train_index,:],locations,data,k,kdtree,distance=np.inf)
     y_training = data[train_index,y_index]
@@ -70,10 +70,10 @@ def train(train_index, test_index,data,y_index,k=50,nh=[1000],epoch = 300,batch_
     y_testing = data[test_index,y_index]
     
     #reshape
-    X_training = X_training.reshape((n_training,k*(3+m)))
-    X_testing = X_testing.reshape((n_testing,k*(3+m)))
+    X_training = X_training.reshape((n_training,k*(1+m)))
+    X_testing = X_testing.reshape((n_testing,k*(1+m)))
     
-    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=20, verbose=0, mode='auto', baseline=None, restore_best_weights=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=50, verbose=1, mode='auto', baseline=None, restore_best_weights=True)
     
             
     history = model.fit(X_training, y_training,
@@ -97,7 +97,7 @@ if __name__ == "__main__":
     alldata_original  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
     
     locations_original = alldata_original[:,0:3]
-    data_original = alldata_original[:,3:4]
+    data_original = alldata_original[:,3]
 
     if len(data_original.shape) < 2:
         data_original = np.expand_dims(data_original, axis=1)
@@ -128,7 +128,7 @@ if __name__ == "__main__":
         folds = utils.generate_kfold(np.arange(n),n_folds=5,shuffle=True,random_state=1634120)    
         r2_folds = []
         for train_index, test_index in folds:
-            r2_training,r2_testing = train(train_index, test_index,data,0,k=k,nh=[200,100,50],epoch = 500,batch_size = 32)
+            r2_training,r2_testing = train(train_index, test_index,data,0,k=k,nh=[500,50],epoch = 5000,batch_size = 16,dropout=0.2,activation='relu')
             print(r2_training,r2_testing)
             r2_folds += [r2_testing]
             

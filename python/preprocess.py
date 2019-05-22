@@ -73,7 +73,7 @@ def create_image_from_neighbours_2d(location,locations,data,k,kdtree,nodes,sizes
     return image
 
 """This function assigns samples into a 3D grid"""
-def create_image_from_neighbours_3d(location,index_loc,locations,data,kdtree,nodes,sizes,distance):
+def create_image_from_neighbours_3d(location,index_loc,locations,cont_data,data_cat,kdtree,nodes,sizes,distance):
     #few validations
     assert len(nodes) == len(sizes)
     
@@ -82,10 +82,11 @@ def create_image_from_neighbours_3d(location,index_loc,locations,data,kdtree,nod
 
     grid_size = np.array(sizes)
 
-    n,m = data.shape
+    n,m = cont_data.shape
+    n,ncat = data_cat.shape
 
     #image has 4 dimensions (features,nx,ny,nz)
-    image_shape = [m] + list(image_shape)
+    image_shape = [m+ncat] + list(image_shape)
 
     values_image = np.zeros(image_shape)
     n_image = np.zeros(image_shape,dtype=np.int32)
@@ -105,18 +106,19 @@ def create_image_from_neighbours_3d(location,index_loc,locations,data,kdtree,nod
                 if (-nodes[0] < grid_indices[0] < nodes[0]) and (-nodes[1] < grid_indices[1] < nodes[1]) and (-nodes[2] < grid_indices[2] < nodes[2]):
                     #print index,grid_indices,data[index,:]
                     #image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1]] = data[index,:]
-                    values_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += data[index,:]
-                    n_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
+                    values_image[:m,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] = cont_data[index,:]
+                    values_image[m:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] = data_cat[index,:]
+                    #n_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
                     
     #find n_images > 0
-    indices = np.where(n_image>0)
+    #indices = np.where(n_image>0)
     #report mean value
-    image[indices] = values_image[indices] / n_image[indices]
+    #image[indices] = values_image[indices] / n_image[indices]
 
-    return image#[:,nodes[0],nodes[1],nodes[2]
-
+    return values_image
+    
 """This function assigns samples into a batch of 3D grid"""
-def create_image_from_neighbours_3d_batch(location_batch,locations,data,k,kdtree,nodes,sizes,distance=np.inf):
+def create_image_from_neighbours_3d_batch(location_batch,locations,cont_data,data_cat,k,kdtree,nodes,sizes,distance=np.inf):
     #few validations
     assert len(nodes) == len(sizes)
     
@@ -126,9 +128,10 @@ def create_image_from_neighbours_3d_batch(location_batch,locations,data,k,kdtree
 
     grid_size = np.array(sizes)
 
-    n,m = data.shape
+    n,m = cont_data.shape
+    n,ncat = data_cat.shape
 
-    image_shape = [m] + list(image_shape)
+    image_shape = [m+ncat] + list(image_shape)
 
     values_image = np.zeros(image_shape)
     n_image = np.zeros(image_shape,dtype=np.int32)
@@ -153,14 +156,15 @@ def create_image_from_neighbours_3d_batch(location_batch,locations,data,k,kdtree
                 if grid_indices[0] > -nodes[0] and grid_indices[0] < nodes[0] and grid_indices[1] > -nodes[1] and grid_indices[1] < nodes[1] and grid_indices[2] > -nodes[2] and grid_indices[2] < nodes[2]:
                     #print index,grid_indices,data[index,:]
                     #image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1]] = data[index,:]
-                    values_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += data[index,:]
-                    n_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
+                    values_image[:m,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] = cont_data[index,:]
+                    values_image[m:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] = data_cat[index,:]
+                    #n_image[:m,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
                     
     #find n_images > 0
-    indices = np.where(n_image>0)
-    image[indices] = values_image[indices] / n_image[indices]
-
-    return image
+    #indices = np.where(n_image>0)
+    #image[indices] = values_image[indices] / n_image[indices]
+    
+    return values_image
 
 def create_image_from_neighbours_3d_batch(location_batch,locations,data,k,kdtree,nodes,sizes,distance=np.inf):
     #few validations
@@ -264,7 +268,7 @@ def get_neighbours(location_batch,locations,data,k,kdtree,distance=np.inf):
     '''
 
     
-    neighbourhood = np.empty((nbatch,k,location_size+m))
+    neighbourhood = np.zeros((nbatch,k,1+m))
 
     distances,indices = kdtree.query(location_batch,k=k+1,distance_upper_bound=distance)
     
@@ -276,8 +280,8 @@ def get_neighbours(location_batch,locations,data,k,kdtree,distance=np.inf):
     for i in range(nbatch):
         #print neighbourhood[i,:,0:location_size].shape,locations[indices[i,:],:].shape
         idx = indices[i,1:]
-        neighbourhood[i,:,0:location_size] = location_batch[i] - locations[idx,:]
-        neighbourhood[i,:,location_size:] = data[idx]
+        neighbourhood[i,:,0] = np.linalg.norm(location_batch[i] - locations[idx,:],axis=1)
+        neighbourhood[i,:,1:] = data[idx]
 
     #neighbourhood[:,:,indices] = 0.0
 

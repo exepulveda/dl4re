@@ -26,7 +26,7 @@ def load_model(model_filename):
 
     return model
 
-def make_model_locations(nh,dropout_rate=0.5,activation='relu',lr=0.0001):
+def make_model_locations(nh,dropout_rate=0.5,activation='relu',lr=0.001):
     model = Sequential()
     
     model.add(Dense(nh[0],kernel_initializer='glorot_normal',input_dim=3))
@@ -45,16 +45,16 @@ def make_model_locations(nh,dropout_rate=0.5,activation='relu',lr=0.0001):
     # let's train the model using SGD + momentum (how original).
     opt = Adam(lr)
     
-    model.compile(opt, "mse")
+    model.compile(opt,loss="mse")
     
     return model
 
-def train(train_index,test_index,locations,data,epoch= 300,batch_size = 100,nh=[1000],dropout_rate=0.5):
+def train(train_index,test_index,locations,data,epoch= 300,batch_size = 16,nh=[1000],dropout_rate=0.5,lr=0.001,activation='relu'):
     
     n_training = len(train_index)
     n_testing = len(test_index)
 
-    model = make_model_locations(nh=nh,dropout_rate=dropout_rate)
+    model = make_model_locations(nh=nh,dropout_rate=dropout_rate,lr=lr,activation=activation)
 
     X_training = np.empty((n_training,3))
     y_training = np.empty((n_training,1))
@@ -70,7 +70,7 @@ def train(train_index,test_index,locations,data,epoch= 300,batch_size = 100,nh=[
     y_testing[:,0] = data[test_index,0]
             
 
-    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=50, verbose=0, mode='auto', baseline=None, restore_best_weights=True)
+    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=50, verbose=1, mode='auto', baseline=None, restore_best_weights=True)
 
     history = model.fit(X_training, y_training,
         batch_size=batch_size, epochs=epoch,
@@ -89,9 +89,6 @@ def train(train_index,test_index,locations,data,epoch= 300,batch_size = 100,nh=[
     return r2_training,r2_testing
 
 if __name__ == "__main__":
-    from keras import backend as K
-    K.set_session(K.tf.Session(config=K.tf.ConfigProto(intra_op_parallelism_threads=4,inter_op_parallelism_threads=4)))
-    
     #Using all data and then spliting it
     alldata_original  = np.loadtxt("../data/muestras.csv",delimiter=",",skiprows=1)
     
@@ -124,7 +121,7 @@ if __name__ == "__main__":
         fold = utils.generate_kfold(np.arange(n),n_folds=5,shuffle=True,random_state=1634120)    
         r2_folds = []
         for train_index, test_index in fold:
-            r2_training,r2_testing = train(train_index,test_index,locations,data,nh=[50],epoch=10000,dropout_rate=0.3)
+            r2_training,r2_testing = train(train_index,test_index,locations,data,nh=[50,20,10],epoch=5000,batch_size=32,dropout_rate=0.2,lr=0.001,activation='relu')
             print(r2_training,r2_testing)
             r2_folds += [r2_testing]
             
