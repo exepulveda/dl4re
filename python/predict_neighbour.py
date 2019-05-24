@@ -73,23 +73,12 @@ if __name__ == "__main__":
     all_locations = np.r_[locations_train,locations_test]
     all_data = np.r_[data_train,data_test]
 
-    
-    n,m = data_train.shape
-
-    k = 30
-    nh =[200,100,50]
-    dropout = 0.5
-    activation = 'relu'
-    batch_size = 16
-    epoch = 1000
-    lr = 0.0001
-
     n_training = len(data_train)
     n_testing = len(data_test)
 
     kdtree = cKDTree(all_locations)
 
-    model = make_model_locations(k*(3+m),nh=nh,dropout_rate=dropout,activation=activation,lr=lr)
+    model = utils.load_model("muestras-model-neighbour")
 
     X_training= preprocess.get_neighbours(locations_train,all_locations,all_data,k,kdtree,distance=np.inf)
     y_training = data_train
@@ -101,19 +90,9 @@ if __name__ == "__main__":
     X_training = X_training.reshape((n_training,k*(3+m)))
     X_testing = X_testing.reshape((n_testing,k*(3+m)))
     
-    es = EarlyStopping(monitor='val_loss', min_delta=0, patience=100, verbose=1, mode='auto', baseline=None, restore_best_weights=True)
-    
-            
-    history = model.fit(X_training, y_training,
-        batch_size=batch_size, epochs=epoch,
-        verbose=1, validation_data=(X_testing, y_testing),shuffle=True,callbacks=[es])
-
-    utils.save_model(model,"muestras-model-neighbour")
-
     #R2 in training
     prediction = model.predict(X_training)
     r2_training = sklearn.metrics.r2_score(y_training,prediction)
-    
     np.savetxt('train_neigh.csv',scaler_data.inverse_transform(prediction))
 
     #R2 in testing
