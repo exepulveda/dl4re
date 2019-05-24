@@ -18,18 +18,6 @@ from keras.utils import np_utils
 from keras.models import model_from_json
 from keras.callbacks import EarlyStopping
 
-def save_model(model,model_filename):
-    print("saving model",model_filename)
-    json_string = model.to_json()
-    open(model_filename + ".json", 'w').write(json_string)
-    model.save_weights(model_filename + ".h5",overwrite=True)
-
-def load_model(model_filename):
-    model = model_from_json(open(model_filename + ".json").read())    
-    model.load_weights(model_filename + ".h5")
-
-    return model
-
 def make_model_locations(inputs,nh=[100],dropout_rate=0.5,activation='relu',lr=0.0001):
     model = Sequential()
 

@@ -268,7 +268,7 @@ def get_neighbours(location_batch,locations,data,k,kdtree,distance=np.inf):
     '''
 
     
-    neighbourhood = np.zeros((nbatch,k,1+m))
+    neighbourhood = np.zeros((nbatch,k,3+m))
 
     distances,indices = kdtree.query(location_batch,k=k+1,distance_upper_bound=distance)
     
@@ -280,8 +280,8 @@ def get_neighbours(location_batch,locations,data,k,kdtree,distance=np.inf):
     for i in range(nbatch):
         #print neighbourhood[i,:,0:location_size].shape,locations[indices[i,:],:].shape
         idx = indices[i,1:]
-        neighbourhood[i,:,0] = np.linalg.norm(location_batch[i] - locations[idx,:],axis=1)
-        neighbourhood[i,:,1:] = data[idx]
+        neighbourhood[i,:,0:3] = location_batch[i] - locations[idx,:]#np.linalg.norm(location_batch[i] - locations[idx,:],axis=1)
+        neighbourhood[i,:,3:] = data[idx]
 
     #neighbourhood[:,:,indices] = 0.0
 
