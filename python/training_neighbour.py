@@ -77,11 +77,11 @@ if __name__ == "__main__":
     n,m = data_train.shape
 
     k = 30
-    nh =[200,100,50]
+    nh =[100]
     dropout = 0.5
     activation = 'relu'
     batch_size = 16
-    epoch = 1000
+    epoch = 100
     lr = 0.0001
 
     n_training = len(data_train)

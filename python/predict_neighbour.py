@@ -79,6 +79,9 @@ if __name__ == "__main__":
     kdtree = cKDTree(all_locations)
 
     model = utils.load_model("muestras-model-neighbour")
+    
+    k = 30
+    m = 1
 
     X_training= preprocess.get_neighbours(locations_train,all_locations,all_data,k,kdtree,distance=np.inf)
     y_training = data_train

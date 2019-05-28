@@ -73,7 +73,49 @@ def create_image_from_neighbours_2d(location,locations,data,k,kdtree,nodes,sizes
     return image
 
 """This function assigns samples into a 3D grid"""
-def create_image_from_neighbours_3d(location,index_loc,locations,cont_data,data_cat,kdtree,nodes,sizes,distance):
+def create_image_from_neighbours_3d(location,locations,cont_data,kdtree,nodes,sizes,distance):
+    #few validations
+    assert len(nodes) == len(sizes)
+    
+    #first create an image centered at location with length size in all directions
+    image_shape = np.array(nodes,dtype=np.int16) * 2 + 1
+
+    grid_size = np.array(sizes)
+
+    n,m = cont_data.shape
+
+    #image has 4 dimensions (features,nx,ny,nz)
+    image_shape = [m] + list(image_shape)
+
+    values_image = np.zeros(image_shape)
+    n_image = np.zeros(image_shape,dtype=np.int32)
+    image = np.zeros(image_shape)
+    
+    if kdtree is not None:
+        #fill cells with neighbourhood
+        indices = kdtree.query_ball_point(location,distance)
+            
+        for i,coord in enumerate(locations):
+            if not np.array_equal(coord,location): #do not include itself
+                #valid
+                diff = (coord - location)
+                #indices of diff
+                grid_indices = np.int32(np.floor(diff/sizes))
+                if (-nodes[0] < grid_indices[0] < nodes[0]) and (-nodes[1] < grid_indices[1] < nodes[1]) and (-nodes[2] < grid_indices[2] < nodes[2]):
+                    #print index,grid_indices,data[index,:]
+                    #image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1]] = data[index,:]
+                    values_image[:m,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] = cont_data[i,:]
+                    n_image[:,grid_indices[0]+nodes[0],grid_indices[1]+nodes[1],grid_indices[2]+nodes[2]] += 1
+                    
+    #find n_images > 0
+    indices = np.where(n_image>0)
+    #report mean value
+    image[indices] = values_image[indices] / n_image[indices]
+
+    return image
+
+"""This function assigns samples into a 3D grid"""
+def create_image_from_neighbours_3d_cat(location,index_loc,locations,cont_data,data_cat,kdtree,nodes,sizes,distance):
     #few validations
     assert len(nodes) == len(sizes)
     
