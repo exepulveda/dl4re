@@ -74,9 +74,11 @@ def train(train_index, test_index,locations,data,wsize,wlength,epoch = 50,batch_
 if __name__ == "__main__":
     n_args = len(sys.argv)
     
+    #CEHCK DEFUALT VALUES
     epoch = 200
     batch_size = 64
     neurons_full_layer = 50
+    lr = 0.001
     
     if n_args > 1:
         epoch = int(sys.argv[1])
@@ -126,13 +128,11 @@ if __name__ == "__main__":
     
     reuse = False #True if you want to load the model and train it more epochs
     
-    neurons_full_layer = 100
-    
     if not reuse:
         model = make_model(m, nwsize[0], nwsize[1], nwsize[2],neurons_full_layer)
     else:
         model = utils.load_model("muestras-model-cnn3d-1")
-        opt = Adam(lr=0.001)#Adagrad(0.001)
+        opt = Adam(lr=lr)#Adagrad(0.001)
         model.compile(loss='mse',optimizer=opt)
 
     X_training = None
